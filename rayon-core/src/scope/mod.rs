@@ -534,14 +534,30 @@ impl<'scope> Scope<'scope> {
     /// task spawning.
     ///
     /// [`scope` function]: fn.scope.html
+    #[cfg_attr(feature = "tracing", track_caller)]
     pub fn spawn<BODY>(&self, body: BODY)
     where
         BODY: FnOnce(&Scope<'scope>) + Send + 'scope,
     {
+        // Generate a tracing span for the function.
+        #[cfg(feature = "tracing")]
+        let span = {
+            let location = std::panic::Location::caller();
+            tracing::trace_span!(
+                "runtime.spawn",
+                kind = %"scoped",
+                "fn" = %std::any::type_name::<BODY>(),
+                spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+            )
+        };
         self.base.increment();
         unsafe {
             let job_ref = Box::new(HeapJob::new(move || {
-                self.base.execute_job(move || body(self))
+                self.base.execute_job(move || {
+                    #[cfg(feature = "tracing")]
+                    let _s = span.entered();
+                    body(self)
+                })
             }))
             .as_job_ref();
 
@@ -579,10 +595,25 @@ impl<'scope> ScopeFifo<'scope> {
     where
         BODY: FnOnce(&ScopeFifo<'scope>) + Send + 'scope,
     {
+        // Generate a tracing span for the function.
+        #[cfg(feature = "tracing")]
+        let span = {
+            let location = std::panic::Location::caller();
+            tracing::trace_span!(
+                "runtime.spawn",
+                kind = %"scoped-fifo",
+                "fn" = %std::any::type_name::<BODY>(),
+                spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+            )
+        };
         self.base.increment();
         unsafe {
             let job_ref = Box::new(HeapJob::new(move || {
-                self.base.execute_job(move || body(self))
+                self.base.execute_job(move || {
+                    #[cfg(feature = "tracing")]
+                    let _s = span.entered();
+                    body(self)
+                })
             }))
             .as_job_ref();
 

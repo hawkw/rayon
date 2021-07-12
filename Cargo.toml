@@ -18,6 +18,9 @@ exclude = ["/ci/*", "/scripts/*", "/.github/*", "/bors.toml"]
 members = ["rayon-demo", "rayon-core"]
 exclude = ["ci"]
 
+[features]
+tracing = ["rayon-core/tracing"]
+
 [dependencies]
 rayon-core = { version = "1.9.1", path = "rayon-core" }
 crossbeam-deque = "0.8.1"

@@ -57,6 +57,7 @@ use std::sync::Arc;
 ///     GLOBAL_COUNTER.fetch_add(1, Ordering::SeqCst);
 /// });
 /// ```
+#[cfg_attr(feature = "tracing", track_caller)]
 pub fn spawn<F>(func: F)
 where
     F: FnOnce() + Send + 'static,
@@ -68,10 +69,27 @@ where
 /// Spawns an asynchronous job in `registry.`
 ///
 /// Unsafe because `registry` must not yet have terminated.
+#[cfg_attr(feature = "tracing", track_caller)]
 pub(super) unsafe fn spawn_in<F>(func: F, registry: &Arc<Registry>)
 where
     F: FnOnce() + Send + 'static,
 {
+    // Generate a tracing span for the function.
+    #[cfg(feature = "tracing")]
+    let func = {
+        let location = std::panic::Location::caller();
+        let span = tracing::trace_span!(
+            "runtime.spawn",
+            kind = %"spawn",
+            "fn" = %std::any::type_name::<F>(),
+            spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+        );
+        move || {
+            let _s = span.entered();
+            (func)()
+        }
+    };
+
     // We assert that this does not hold any references (we know
     // this because of the `'static` bound in the inferface);
     // moreover, we assert that the code below is not supposed to
@@ -132,6 +150,7 @@ where
 /// details.
 ///
 /// [ph]: struct.ThreadPoolBuilder.html#method.panic_handler
+#[cfg_attr(feature = "tracing", track_caller)]
 pub fn spawn_fifo<F>(func: F)
 where
     F: FnOnce() + Send + 'static,
@@ -143,10 +162,26 @@ where
 /// Spawns an asynchronous FIFO job in `registry.`
 ///
 /// Unsafe because `registry` must not yet have terminated.
+#[cfg_attr(feature = "tracing", track_caller)]
 pub(super) unsafe fn spawn_fifo_in<F>(func: F, registry: &Arc<Registry>)
 where
     F: FnOnce() + Send + 'static,
 {
+    // Generate a tracing span for the function.
+    #[cfg(feature = "tracing")]
+    let func = {
+        let location = std::panic::Location::caller();
+        let span = tracing::trace_span!(
+            "runtime.spawn",
+            kind = %"fifo",
+            "fn" = %std::any::type_name::<F>(),
+            spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+        );
+        move || {
+            let _s = span.entered();
+            (func)()
+        }
+    };
     // We assert that this does not hold any references (we know
     // this because of the `'static` bound in the inferface);
     // moreover, we assert that the code below is not supposed to
