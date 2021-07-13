@@ -90,6 +90,7 @@ mod test;
 /// closure, that panic will be propagated and hence `join()` will
 /// panic with the same panic value. If both closures panic, `join()`
 /// will panic with the panic value from the first closure.
+#[cfg_attr(feature = "tracing", track_caller)]
 pub fn join<A, B, RA, RB>(oper_a: A, oper_b: B) -> (RA, RB)
 where
     A: FnOnce() -> RA + Send,
@@ -112,6 +113,7 @@ where
 /// the second job is stolen by a different thread, or if
 /// `join_context` was called from outside the thread pool to begin
 /// with.
+#[cfg_attr(feature = "tracing", track_caller)]
 pub fn join_context<A, B, RA, RB>(oper_a: A, oper_b: B) -> (RA, RB)
 where
     A: FnOnce(FnContext) -> RA + Send,
@@ -120,13 +122,45 @@ where
     RB: Send,
 {
     #[inline]
+    #[cfg_attr(feature = "tracing", track_caller)]
     fn call_a<R>(f: impl FnOnce(FnContext) -> R, injected: bool) -> impl FnOnce() -> R {
-        move || f(FnContext::new(injected))
+        #[cfg(feature = "tracing")]
+        let span = if injected {
+            let location = std::panic::Location::caller();
+            tracing::trace_span!(
+                "runtime.spawn",
+                kind = %"join",
+                spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+                injected,
+            )
+        } else {
+            tracing::Span::none()
+        };
+        move || {
+            #[cfg(feature = "tracing")]
+            let _e = span.enter();
+            f(FnContext::new(injected))
+        }
     }
 
     #[inline]
+    #[cfg_attr(feature = "tracing", track_caller)]
     fn call_b<R>(f: impl FnOnce(FnContext) -> R) -> impl FnOnce(bool) -> R {
-        move |migrated| f(FnContext::new(migrated))
+        move |migrated| {
+            #[cfg(feature = "tracing")]
+            let _span = if migrated {
+                let location = std::panic::Location::caller();
+                Some(tracing::trace_span!(
+                    "runtime.spawn",
+                    kind = %"join",
+                    spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+                    migrated
+                ).entered())
+            } else {
+                None
+            };
+            f(FnContext::new(migrated))
+        }
     }
 
     registry::in_worker(|worker_thread, injected| unsafe {
