@@ -82,7 +82,9 @@ where
             "runtime.spawn",
             kind = %"spawn",
             "fn" = %std::any::type_name::<F>(),
-            spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+            loc.file = location.file(),
+            loc.line = location.line(),
+            loc.col = location.column(),
         );
         move || {
             let _s = span.entered();
@@ -175,7 +177,9 @@ where
             "runtime.spawn",
             kind = %"fifo",
             "fn" = %std::any::type_name::<F>(),
-            spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+            loc.file = location.file(),
+            loc.line = location.line(),
+            loc.col = location.column(),
         );
         move || {
             let _s = span.entered();

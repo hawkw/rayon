@@ -547,7 +547,9 @@ impl<'scope> Scope<'scope> {
                 "runtime.spawn",
                 kind = %"scoped",
                 "fn" = %std::any::type_name::<BODY>(),
-                spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+                loc.file = location.file(),
+                loc.line = location.line(),
+                loc.col = location.column(),
             )
         };
         self.base.increment();
@@ -603,7 +605,9 @@ impl<'scope> ScopeFifo<'scope> {
                 "runtime.spawn",
                 kind = %"scoped-fifo",
                 "fn" = %std::any::type_name::<BODY>(),
-                spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+                loc.file = location.file(),
+                loc.line = location.line(),
+                loc.col = location.column(),
             )
         };
         self.base.increment();

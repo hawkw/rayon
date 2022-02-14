@@ -130,7 +130,9 @@ where
             tracing::trace_span!(
                 "runtime.spawn",
                 kind = %"join",
-                spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+                loc.file = location.file(),
+                loc.line = location.line(),
+                loc.col = location.column(),
                 injected,
             )
         } else {
@@ -150,15 +152,18 @@ where
             #[cfg(feature = "tracing")]
             let _span = if migrated {
                 let location = std::panic::Location::caller();
-                Some(tracing::trace_span!(
+                tracing::trace_span!(
                     "runtime.spawn",
                     kind = %"join",
-                    spawn.location = %format_args!("{}:{}:{}", location.file(), location.line(), location.column()),
+                    loc.file = location.file(),
+                    loc.line = location.line(),
+                    loc.col = location.column(),
                     migrated
-                ).entered())
+                )
             } else {
-                None
-            };
+                tracing::Span::none()
+            }
+            .entered();
             f(FnContext::new(migrated))
         }
     }
