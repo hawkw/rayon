@@ -99,7 +99,6 @@ where
     RB: Send,
 {
     #[inline]
-    #[cfg_attr(feature = "tracing", track_caller)]
     fn call<R>(f: impl FnOnce() -> R) -> impl FnOnce(FnContext) -> R {
         move |_| f()
     }

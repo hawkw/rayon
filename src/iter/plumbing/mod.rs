@@ -366,6 +366,8 @@ where
         C: Consumer<I>,
     {
         type Output = C::Result;
+
+        #[cfg_attr(feature = "tracing", track_caller)]
         fn callback<P>(self, producer: P) -> C::Result
         where
             P: Producer<Item = I>,
@@ -388,6 +390,7 @@ where
 /// [`bridge`]: fn.bridge.html
 /// [`drive_unindexed`]: ../trait.ParallelIterator.html#tymethod.drive_unindexed
 /// [`drive`]: ../trait.IndexedParallelIterator.html#tymethod.drive
+#[cfg_attr(feature = "tracing", track_caller)]
 pub fn bridge_producer_consumer<P, C>(len: usize, producer: P, consumer: C) -> C::Result
 where
     P: Producer,
@@ -396,6 +399,7 @@ where
     let splitter = LengthSplitter::new(producer.min_len(), producer.max_len(), len);
     return helper(len, false, splitter, producer, consumer);
 
+    #[cfg_attr(feature = "tracing", track_caller)]
     fn helper<P, C>(
         len: usize,
         migrated: bool,
@@ -443,6 +447,7 @@ where
 /// A variant of [`bridge_producer_consumer`] where the producer is an unindexed producer.
 ///
 /// [`bridge_producer_consumer`]: fn.bridge_producer_consumer.html
+#[cfg_attr(feature = "tracing", track_caller)]
 pub fn bridge_unindexed<P, C>(producer: P, consumer: C) -> C::Result
 where
     P: UnindexedProducer,
@@ -452,6 +457,7 @@ where
     bridge_unindexed_producer_consumer(false, splitter, producer, consumer)
 }
 
+#[cfg_attr(feature = "tracing", track_caller)]
 fn bridge_unindexed_producer_consumer<P, C>(
     migrated: bool,
     mut splitter: Splitter,
