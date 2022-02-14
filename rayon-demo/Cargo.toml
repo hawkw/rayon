@@ -20,6 +20,9 @@ regex = "1"
 version = "1.0.85"
 features = ["derive"]
 
+[target.'cfg(tokio_unstable)'.dependencies]
+console-subscriber = "0.1.2"
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

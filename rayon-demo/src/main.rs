@@ -73,6 +73,10 @@ fn usage() -> ! {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    #[cfg(tokio_unstable)]
+    {
+        console_subscriber::init();
+    }
 
     if args.len() < 2 {
         usage();
