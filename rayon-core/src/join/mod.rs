@@ -99,6 +99,7 @@ where
     RB: Send,
 {
     #[inline]
+    #[cfg_attr(feature = "tracing", track_caller)]
     fn call<R>(f: impl FnOnce() -> R) -> impl FnOnce(FnContext) -> R {
         move |_| f()
     }
@@ -122,52 +123,48 @@ where
     RB: Send,
 {
     #[inline]
-    #[cfg_attr(feature = "tracing", track_caller)]
     fn call_a<R>(f: impl FnOnce(FnContext) -> R, injected: bool) -> impl FnOnce() -> R {
-        #[cfg(feature = "tracing")]
-        let span = if injected {
-            let location = std::panic::Location::caller();
-            tracing::trace_span!(
-                "runtime.spawn",
-                kind = %"join",
-                loc.file = location.file(),
-                loc.line = location.line(),
-                loc.col = location.column(),
-                injected,
-            )
-        } else {
-            tracing::Span::none()
-        };
-        move || {
-            #[cfg(feature = "tracing")]
-            let _e = span.enter();
-            f(FnContext::new(injected))
-        }
+        move || f(FnContext::new(injected))
+    }
+
+    #[inline]
+    fn call_b<R>(f: impl FnOnce(FnContext) -> R) -> impl FnOnce(bool) -> R {
+        move |migrated| f(FnContext::new(migrated))
     }
 
     #[inline]
     #[cfg_attr(feature = "tracing", track_caller)]
-    fn call_b<R>(f: impl FnOnce(FnContext) -> R) -> impl FnOnce(bool) -> R {
-        move |migrated| {
-            #[cfg(feature = "tracing")]
-            let _span = if migrated {
-                let location = std::panic::Location::caller();
-                tracing::trace_span!(
-                    "runtime.spawn",
-                    kind = %"join",
-                    loc.file = location.file(),
-                    loc.line = location.line(),
-                    loc.col = location.column(),
-                    migrated
-                )
-            } else {
-                tracing::Span::none()
-            }
-            .entered();
-            f(FnContext::new(migrated))
-        }
+    fn span<F, O>(name: &'static str) -> tracing::Span {
+        let location = std::panic::Location::caller();
+        tracing::trace_span!(
+            "runtime.spawn",
+            kind = %"join",
+            %name,
+            // TODO(eliza): set this later
+            migrated = tracing::field::Empty,
+            loc.file = location.file(),
+            loc.line = location.line(),
+            loc.col = location.column(),
+            "fn" = %std::any::type_name::<F>(),
+            "fn.output" = %std::any::type_name::<O>(),
+        )
     }
-
+    #[cfg(feature = "tracing")]
+    let oper_a = {
+        let span = span::<A, RA>("A");
+        move |ctx| {
+            let _span = span.entered();
+            oper_a(ctx)
+        }
+    };
+    #[cfg(feature = "tracing")]
+    let oper_b = {
+        let span = span::<B, RB>("B");
+        move |ctx| {
+            let _span = span.entered();
+            oper_b(ctx)
+        }
+    };
     registry::in_worker(|worker_thread, injected| unsafe {
         // Create virtual wrapper for task b; this all has to be
         // done here so that the stack frame can keep it all live
